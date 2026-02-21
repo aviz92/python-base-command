@@ -30,7 +30,7 @@ Repository = "https://github.com/yourusername/python-base-command"
 Issues = "https://github.com/yourusername/python-base-command/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["base_command"]
+packages = ["python_base_command"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
