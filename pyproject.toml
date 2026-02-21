@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "python-base-command"
-version = "0.1.0"
+version = "0.1.1"
 description = "Django-style BaseCommand framework for standalone Python CLI tools"
 readme = "README.md"
 license = { text = "MIT" }
