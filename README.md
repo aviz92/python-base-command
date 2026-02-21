@@ -1,43 +1,66 @@
 # python-base-command
 
+[![PyPI version](https://img.shields.io/pypi/v/python-base-command)](https://pypi.org/project/python-base-command/)
+[![Python](https://img.shields.io/badge/python-%3E%3D3.12-blue)](https://pypi.org/project/python-base-command/)
+[![License](https://img.shields.io/pypi/l/python-base-command)](https://github.com/yourusername/python-base-command/blob/main/LICENSE)
+[![Maintenance](https://img.shields.io/badge/maintained-yes-green)](https://github.com/yourusername/python-base-command)
+
 A Django-style `BaseCommand` framework for **standalone** Python CLI tools — no Django required.
+
+If you've ever written a Django management command and wished you could use the same clean pattern anywhere in Python, this is for you.
 
 ---
 
-## Installation
+## 🚀 Features
+
+- ✅ **Django-style API** — `handle()`, `add_arguments()`, `CommandError`, `LabelCommand` — the same pattern you already know
+- ✅ **Built-in logging** — `self.logger` powered by [`custom-python-logger`](https://pypi.org/project/custom-python-logger/), with colored output and custom levels (`step`, `exception`)
+- ✅ **Auto-discovery** — drop `.py` files into a `commands/` folder and they're automatically available, just like Django's `manage.py`
+- ✅ **Manual registry** — register commands explicitly with the `@registry.register()` decorator
+- ✅ **Built-in flags** — every command gets `--version`, `--verbosity`, `--traceback` for free
+- ✅ **`call_command()`** — invoke commands programmatically, perfect for testing
+- ✅ **`output_transaction`** — wrap SQL output in `BEGIN;` / `COMMIT;` automatically
+- ✅ **Zero Django dependency** — works in any Python project
+- ✅ **Python 3.12+**
+
+---
+
+## 📦 Installation
 
 ```bash
 pip install python-base-command
 ```
 
-**Dependencies:** `custom-python-logger==2.0.13` (installed automatically).
+Dependencies: [`custom-python-logger==2.0.13`](https://pypi.org/project/custom-python-logger/) — installed automatically.
 
 ---
 
-## Quick Start
+## ⚡ Quick Start
 
 ```python
 # greet.py
 import sys
 from base_command import BaseCommand, CommandError
 
+
 class Command(BaseCommand):
     help = "Greet a user by name"
 
     def add_arguments(self, parser):
-        parser.add_argument("name", type=str)
-        parser.add_argument("--shout", action="store_true")
+        parser.add_argument("name", type=str, help="Name to greet")
+        parser.add_argument("--shout", action="store_true", help="Print in uppercase")
 
-    def handle(self, *args, **options):
-        name = options["name"].strip()
+    def handle(self, **kwargs):
+        name = kwargs["name"].strip()
         if not name:
             raise CommandError("Name cannot be empty.")
 
         msg = f"Hello, {name}!"
-        if options["shout"]:
+        if kwargs["shout"]:
             msg = msg.upper()
 
         self.logger.info(msg)
+
 
 if __name__ == "__main__":
     Command().run_from_argv(sys.argv)
@@ -52,7 +75,9 @@ python greet.py --version
 
 ---
 
-## Auto-discovery (like Django's manage.py)
+## 🗂 Auto-discovery (like Django's `manage.py`)
+
+Organize your commands in a folder — `Runner` discovers and loads them automatically.
 
 ```
 myapp/
@@ -60,6 +85,30 @@ myapp/
 └── commands/
     ├── greet.py
     └── export.py
+```
+
+Each file must define a `Command` class that subclasses `BaseCommand`:
+
+```python
+# commands/greet.py
+from base_command import BaseCommand, CommandError
+
+
+class Command(BaseCommand):
+    help = "Greet a user by name"
+
+    def add_arguments(self, parser):
+        parser.add_argument("name", type=str)
+        parser.add_argument("--shout", action="store_true")
+
+    def handle(self, **kwargs):
+        name = kwargs["name"].strip()
+        if not name:
+            raise CommandError("Name cannot be empty.")
+        msg = f"Hello, {name}!"
+        if kwargs["shout"]:
+            msg = msg.upper()
+        self.logger.info(msg)
 ```
 
 ```python
@@ -71,38 +120,94 @@ if __name__ == "__main__":
 ```
 
 ```bash
-python cli.py greet Alice
 python cli.py --help
+python cli.py greet Alice
+python cli.py greet Alice --shout
 ```
 
 ---
 
-## Manual Registry
+## 📋 Manual Registry
+
+Register commands explicitly using the `@registry.register()` decorator — useful when commands live across different modules.
 
 ```python
 from base_command import BaseCommand, CommandError, CommandRegistry
 
 registry = CommandRegistry()
 
+
 @registry.register("greet")
 class GreetCommand(BaseCommand):
     help = "Greet a user"
 
     def add_arguments(self, parser):
-        parser.add_argument("name")
+        parser.add_argument("name", type=str)
 
-    def handle(self, *args, **options):
-        self.logger.info(f"Hello, {options['name']}!")
+    def handle(self, **kwargs):
+        self.logger.info(f"Hello, {kwargs['name']}!")
+
+
+@registry.register("export")
+class ExportCommand(BaseCommand):
+    help = "Export data"
+
+    def add_arguments(self, parser):
+        parser.add_argument("--format", choices=["csv", "json"], default="csv")
+        parser.add_argument("--dry-run", action="store_true")
+
+    def handle(self, **kwargs):
+        if kwargs["dry_run"]:
+            self.logger.warning("Dry run — no files written.")
+            return
+        self.logger.info(f"Exported as {kwargs['format']}.")
+
 
 if __name__ == "__main__":
     registry.run()
 ```
 
+```bash
+python cli.py --help
+python cli.py greet Alice
+python cli.py export --format json
+python cli.py export --dry-run
+```
+
 ---
 
-## API Reference
+## 🧪 Testing with `call_command`
+
+Invoke commands programmatically — ideal for unit tests.
+
+```python
+from base_command import call_command, CommandError
+import pytest
+
+from commands.greet import Command as GreetCommand
+
+
+def test_greet():
+    result = call_command(GreetCommand, name="Alice")
+    assert result is None  # handle() logs, doesn't return
+
+
+def test_greet_empty_name():
+    with pytest.raises(CommandError, match="cannot be empty"):
+        call_command(GreetCommand, name="")
+```
+
+`CommandError` propagates normally when using `call_command()` — it is only caught and logged when invoked from the CLI.
+
+---
+
+## 📖 API Reference
 
 ### `BaseCommand`
+
+Base class for all commands. Inherit from it and implement `handle()`.
+
+**Class attributes**
 
 | Attribute | Type | Default | Description |
 |---|---|---|---|
@@ -110,69 +215,88 @@ if __name__ == "__main__":
 | `output_transaction` | `bool` | `False` | Wrap `handle()` return value in `BEGIN;` / `COMMIT;` |
 | `suppressed_base_arguments` | `set[str]` | `set()` | Base flags to hide from `--help` |
 | `stealth_options` | `tuple[str]` | `()` | Options used but not declared via `add_arguments()` |
-| `missing_args_message` | `str \| None` | `None` | Custom message when positional args are missing |
+| `missing_args_message` | `str \| None` | `None` | Custom message when required positional args are missing |
 
-#### Methods to override
+**Methods to override**
 
 | Method | Required | Description |
 |---|---|---|
-| `handle(*args, **options)` | ✅ | Command logic. May return a string. |
-| `add_arguments(parser)` | ❌ | Add command-specific arguments. |
+| `handle(**kwargs)` | ✅ | Command logic. May return a string. |
+| `add_arguments(parser)` | ❌ | Add command-specific arguments to the parser. |
 | `get_version()` | ❌ | Override to expose your package version via `--version`. |
 
-#### `self.logger`
+**`self.logger`**
 
-A `CustomLoggerAdapter` from `custom-python-logger`. Available methods:
+A `CustomLoggerAdapter` from `custom-python-logger`, available inside every command:
 
 ```python
 self.logger.debug("...")
 self.logger.info("...")
-self.logger.step("...")       # custom level for process steps
+self.logger.step("...")        # custom level for process steps
 self.logger.warning("...")
 self.logger.error("...")
 self.logger.critical("...")
-self.logger.exception("...")  # logs with traceback
+self.logger.exception("...")   # logs with full traceback
 ```
 
-#### Built-in flags (always available)
+**Built-in flags** — available on every command automatically:
 
 | Flag | Description |
 |---|---|
 | `--version` | Print the version and exit |
-| `-v / --verbosity` | Verbosity level: 0–3 (default 1) |
-| `--traceback` | Re-raise `CommandError` instead of logging cleanly |
+| `-v` / `--verbosity` | Verbosity level: 0=minimal, 1=normal, 2=verbose, 3=very verbose (default: 1) |
+| `--traceback` | Re-raise `CommandError` with full traceback instead of logging cleanly |
 
 ---
 
 ### `CommandError`
 
+Raise this to signal that something went wrong. When raised inside `handle()` during CLI invocation, it is caught, logged as an error, and the process exits with `returncode`. When invoked via `call_command()`, it propagates normally.
+
 ```python
 raise CommandError("Something went wrong.")
-raise CommandError("Fatal.", returncode=2)
+raise CommandError("Fatal error.", returncode=2)
 ```
 
 ---
 
 ### `LabelCommand`
 
+For commands that accept one or more arbitrary string labels. Override `handle_label()` instead of `handle()`.
+
 ```python
-from base_command import LabelCommand
+from base_command import LabelCommand, CommandError
+
 
 class Command(LabelCommand):
-    label = "filename"
-    help  = "Process one or more files"
+    label = "filepath"
+    help = "Process one or more files"
 
-    def handle_label(self, label, **options):
-        self.logger.info(f"Processing {label}...")
+    def add_arguments(self, parser):
+        super().add_arguments(parser)
+        parser.add_argument("--strict", action="store_true")
+
+    def handle_label(self, label, **kwargs):
+        if not label.endswith((".txt", ".csv", ".json")):
+            msg = f"Unsupported file type: '{label}'"
+            if kwargs["strict"]:
+                raise CommandError(msg)
+            self.logger.warning(f"Skipping — {msg}")
+            return None
+        self.logger.info(f"Processed: {label}")
+        return f"ok:{label}"
 ```
 
 ```bash
-python cli.py process file1.txt file2.txt
+python cli.py process report.csv notes.txt image.png
+python cli.py process report.csv notes.txt image.png --strict
 ```
 
 ---
 
 ### `Runner`
+
+Auto-discovers commands from a directory. Every `.py` file in the folder that defines a `Command` class subclassing `BaseCommand` is automatically registered.
 
 ```python
 from base_command import Runner
@@ -180,40 +304,51 @@ from base_command import Runner
 Runner(commands_dir="commands").run()
 ```
 
+Files whose names start with `_` are ignored.
+
 ---
 
 ### `CommandRegistry`
+
+Manually register commands using a decorator or programmatically.
 
 ```python
 from base_command import CommandRegistry
 
 registry = CommandRegistry()
 
-@registry.register("name")
-class MyCommand(BaseCommand): ...
+@registry.register("greet")
+class GreetCommand(BaseCommand): ...
 
-registry.run()
+registry.add("export", ExportCommand)  # programmatic alternative
+
+registry.run()                                    # uses sys.argv
+registry.run(["myapp", "greet", "Alice"])         # explicit argv
 ```
 
 ---
 
 ### `call_command`
 
+Invoke a command from Python code. Accepts either a class or an instance.
+
 ```python
 from base_command import call_command
 
+call_command(GreetCommand, name="Alice")
 call_command(GreetCommand, name="Alice", verbosity=0)
+call_command(GreetCommand())
 ```
 
 ---
 
-## Comparison with Django
+## 🔄 Comparison with Django
 
 | Feature | Django `BaseCommand` | `python-base-command` |
 |---|---|---|
 | `handle()` / `add_arguments()` | ✅ | ✅ |
 | `self.logger` (via custom-python-logger) | ❌ | ✅ |
-| `self.stdout` / `self.style` | ✅ | ❌ (replaced by logger) |
+| `self.stdout` / `self.style` | ✅ | ❌ replaced by `self.logger` |
 | `--version` / `--verbosity` / `--traceback` | ✅ | ✅ |
 | `CommandError` with `returncode` | ✅ | ✅ |
 | `LabelCommand` | ✅ | ✅ |
