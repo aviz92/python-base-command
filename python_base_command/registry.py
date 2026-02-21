@@ -6,7 +6,7 @@ without relying on the auto-discovery folder convention.
 
 Usage::
 
-    from base_command import BaseCommand, CommandRegistry
+    from python_base_command import BaseCommand, CommandRegistry
 
     registry = CommandRegistry()
 

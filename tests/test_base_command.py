@@ -4,7 +4,7 @@ Tests for base-command.
 Run with: python -m pytest tests/ -v
 """
 
-import io
+import sys
 from typing import Any
 
 import pytest
@@ -14,9 +14,9 @@ from python_base_command import (
     CommandError,
     CommandRegistry,
     LabelCommand,
-    OutputWrapper,
     call_command,
 )
+from python_base_command.base import CommandParser
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -49,53 +49,44 @@ def make_command(
 
 class TestCommandError:
     def test_default_returncode(self) -> None:
-        e = CommandError("oops")
-        assert e.returncode == 1
+        assert CommandError("oops").returncode == 1
 
     def test_custom_returncode(self) -> None:
-        e = CommandError("oops", returncode=42)
-        assert e.returncode == 42
+        assert CommandError("oops", returncode=42).returncode == 42
 
     def test_is_exception(self) -> None:
         assert isinstance(CommandError("x"), Exception)
 
 
 # ---------------------------------------------------------------------------
-# OutputWrapper
+# BaseCommand — logger
 # ---------------------------------------------------------------------------
 
 
-class TestOutputWrapper:
-    def _wrapper(self) -> tuple[OutputWrapper, io.StringIO]:
-        buf = io.StringIO()
-        return OutputWrapper(buf), buf
+class TestBaseCommandLogger:
+    def test_has_logger(self) -> None:
+        cmd = make_command()()
+        assert hasattr(cmd, "logger")
 
-    def test_write_adds_newline(self) -> None:
-        w, buf = self._wrapper()
-        w.write("hello")
-        assert buf.getvalue() == "hello\n"
+    def test_logger_has_info(self) -> None:
+        cmd = make_command()()
+        assert callable(cmd.logger.info)
 
-    def test_write_no_duplicate_newline(self) -> None:
-        w, buf = self._wrapper()
-        w.write("hello\n")
-        assert buf.getvalue() == "hello\n"
+    def test_logger_has_warning(self) -> None:
+        cmd = make_command()()
+        assert callable(cmd.logger.warning)
 
-    def test_custom_ending(self) -> None:
-        buf = io.StringIO()
-        w = OutputWrapper(buf, ending="")
-        w.write("hello")
-        assert buf.getvalue() == "hello"
+    def test_logger_has_error(self) -> None:
+        cmd = make_command()()
+        assert callable(cmd.logger.error)
 
-    def test_write_empty(self) -> None:
-        w, buf = self._wrapper()
-        w.write("")
-        assert buf.getvalue() == "\n"
+    def test_logger_has_step(self) -> None:
+        cmd = make_command()()
+        assert callable(cmd.logger.step)
 
-    def test_flush(self) -> None:
-        w, buf = self._wrapper()
-        w.write("x")
-        w.flush()
-        assert buf.getvalue() == "x\n"
+    def test_logger_has_debug(self) -> None:
+        cmd = make_command()()
+        assert callable(cmd.logger.debug)
 
 
 # ---------------------------------------------------------------------------
@@ -105,33 +96,19 @@ class TestOutputWrapper:
 
 class TestBaseCommandParser:
     def test_has_version_flag(self) -> None:
-        cmd = make_command()()
-        parser = cmd.create_parser("prog", "test")
-        help_text = parser.format_help()
-        assert "--version" in help_text
+        parser = make_command()().create_parser("prog", "test")
+        assert "--version" in parser.format_help()
 
     def test_has_verbosity_flag(self) -> None:
-        cmd = make_command()()
-        parser = cmd.create_parser("prog", "test")
+        parser = make_command()().create_parser("prog", "test")
         assert "--verbosity" in parser.format_help()
 
     def test_has_traceback_flag(self) -> None:
-        cmd = make_command()()
-        parser = cmd.create_parser("prog", "test")
+        parser = make_command()().create_parser("prog", "test")
         assert "--traceback" in parser.format_help()
 
-    def test_has_no_color_flag(self) -> None:
-        cmd = make_command()()
-        parser = cmd.create_parser("prog", "test")
-        assert "--no-color" in parser.format_help()
-
-    def test_has_force_color_flag(self) -> None:
-        cmd = make_command()()
-        parser = cmd.create_parser("prog", "test")
-        assert "--force-color" in parser.format_help()
-
     def test_custom_argument(self) -> None:
-        def add_args(self: BaseCommand, parser: Any) -> None:
+        def add_args(self: BaseCommand, parser: CommandParser) -> None:
             parser.add_argument("name")
 
         cmd_class = make_command(add_args_fn=add_args)
@@ -165,42 +142,23 @@ class TestBaseCommandExecute:
         with pytest.raises(NotImplementedError):
             call_command(BaseCommand)
 
-    def test_stdout_captured(self) -> None:
-        buf = io.StringIO()
-
-        def handle(self: BaseCommand, *args: Any, **options: Any) -> None:
-            self.stdout.write("hello")
-
-        cmd_class = make_command(handle_fn=handle)
-        call_command(cmd_class, stdout=buf)
-        assert "hello" in buf.getvalue()
-
-    def test_stderr_captured(self) -> None:
-        buf = io.StringIO()
-
-        def handle(self: BaseCommand, *args: Any, **options: Any) -> None:
-            self.stderr.write("err")
-
-        cmd_class = make_command(handle_fn=handle)
-        call_command(cmd_class, stderr=buf)
-        assert "err" in buf.getvalue()
-
     def test_output_transaction_wraps_output(self) -> None:
-        buf = io.StringIO()
+        messages = []
 
-        def handle(self: BaseCommand, *args: Any, **options: Any) -> str:
-            return "SELECT 1;"
+        class TxCmd(BaseCommand):
+            output_transaction = True
 
-        cmd_class = make_command(handle_fn=handle, output_transaction=True)
-        call_command(cmd_class, stdout=buf)
-        out = buf.getvalue()
-        assert "BEGIN;" in out
-        assert "COMMIT;" in out
-        assert "SELECT 1;" in out
+            def handle(self, *args: Any, **options: Any) -> str:
+                return "SELECT 1;"
 
-    def test_no_color_and_force_color_raises(self) -> None:
-        with pytest.raises(CommandError):
-            make_command()(no_color=True, force_color=True)
+        cmd = TxCmd()
+        cmd.logger.info = lambda msg, *a, **kw: messages.append(msg)
+
+        cmd.execute()
+        assert len(messages) == 1
+        assert "BEGIN;" in messages[0]
+        assert "COMMIT;" in messages[0]
+        assert "SELECT 1;" in messages[0]
 
     def test_command_error_propagates_in_call_command(self) -> None:
         def handle(self: BaseCommand, *args: Any, **options: Any) -> None:
@@ -223,9 +181,6 @@ class TestBaseCommandExecute:
 
 # ---------------------------------------------------------------------------
 # BaseCommand — run_from_argv
-#
-# run_from_argv uses single-file convention: argv[0]=prog, argv[1:]=args.
-# There is no subcommand slot — unlike Django's [manage.py, subcommand, ...].
 # ---------------------------------------------------------------------------
 
 
@@ -236,7 +191,6 @@ class TestRunFromArgv:
 
         cmd_class = make_command(handle_fn=handle)
         with pytest.raises(SystemExit) as exc_info:
-            # argv = [prog]  →  no extra args, handle() raises immediately
             cmd_class().run_from_argv(["prog"])
         assert exc_info.value.code == 2
 
@@ -246,7 +200,6 @@ class TestRunFromArgv:
 
         cmd_class = make_command(handle_fn=handle)
         with pytest.raises(CommandError):
-            # argv = [prog, --traceback]
             cmd_class().run_from_argv(["prog", "--traceback"])
 
     def test_keyboard_interrupt_exits_1(self) -> None:
@@ -261,21 +214,20 @@ class TestRunFromArgv:
     def test_positional_arg_parsed_correctly(self) -> None:
         received = []
 
-        def add_args(self: BaseCommand, parser: Any) -> None:
+        def add_args(self: BaseCommand, parser: CommandParser) -> None:
             parser.add_argument("name")
 
         def handle(self: BaseCommand, *args: Any, **options: Any) -> None:
             received.append(options["name"])
 
         cmd_class = make_command(handle_fn=handle, add_args_fn=add_args)
-        # argv = [prog, Alice]  →  name="Alice"
         cmd_class().run_from_argv(["prog", "Alice"])
         assert received == ["Alice"]
 
     def test_flag_parsed_correctly(self) -> None:
         received = []
 
-        def add_args(self: BaseCommand, parser: Any) -> None:
+        def add_args(self: BaseCommand, parser: CommandParser) -> None:
             parser.add_argument("--shout", action="store_true")
 
         def handle(self: BaseCommand, *args: Any, **options: Any) -> None:
@@ -285,19 +237,9 @@ class TestRunFromArgv:
         cmd_class().run_from_argv(["prog", "--shout"])
         assert received == [True]
 
-    def test_no_color_flag(self) -> None:
-        cmd_class = make_command()
-        # Should not raise — --no-color is always available.
-        try:
-            cmd_class().run_from_argv(["prog", "--no-color"])
-        except SystemExit:
-            pass  # handle() returns None which is fine
-
 
 # ---------------------------------------------------------------------------
 # LabelCommand
-#
-# run_from_argv: argv[0]=prog, argv[1:]=labels (no subcommand slot).
 # ---------------------------------------------------------------------------
 
 
@@ -309,7 +251,6 @@ class TestLabelCommand:
             def handle_label(self, label: str, **options: Any) -> None:
                 seen.append(label)
 
-        # argv = [prog, foo, bar]  →  labels = ["foo", "bar"]
         Cmd().run_from_argv(["prog", "foo", "bar"])
         assert seen == ["foo", "bar"]
 
@@ -318,14 +259,12 @@ class TestLabelCommand:
             call_command(LabelCommand, "x")
 
     def test_output_joined(self) -> None:
-        buf = io.StringIO()
-
         class Cmd(LabelCommand):
             def handle_label(self, label: str, **options: Any) -> str:
                 return label.upper()
 
-        call_command(Cmd, "a", "b", stdout=buf)
-        assert buf.getvalue().strip() == "A\nB"
+        result = call_command(Cmd, "a", "b")
+        assert result == "A\nB"
 
 
 # ---------------------------------------------------------------------------
@@ -365,26 +304,6 @@ class TestCommandRegistry:
             reg.run(["prog", "nonexistent"])
         assert exc_info.value.code == 1
 
-    def test_run_dispatches_command(self) -> None:
-        reg = CommandRegistry()
-        buf = io.StringIO()
-
-        @reg.register("hi")
-        class HiCmd(BaseCommand):
-            def handle(self, *args: Any, **options: Any) -> None:
-                self.stdout.write("hi!")
-
-        original_init = HiCmd.__init__
-
-        def patched_init(self: BaseCommand, *a: Any, **kw: Any) -> None:
-            kw_with_stdout = {**kw, "stdout": buf}
-            original_init(self, *a, **kw_with_stdout)
-
-        HiCmd.__init__ = patched_init
-
-        reg.run(["prog", "hi"])
-        assert "hi!" in buf.getvalue()
-
     def test_help_exits_0(self) -> None:
         reg = CommandRegistry()
         with pytest.raises(SystemExit) as exc_info:
@@ -403,13 +322,11 @@ class TestCallCommand:
             def handle(self, *args: Any, **options: Any) -> str:
                 return "ok"
 
-        result = call_command(Cmd)
-        assert result == "ok"
+        assert call_command(Cmd) == "ok"
 
     def test_accepts_instance(self) -> None:
         class Cmd(BaseCommand):
             def handle(self, *args: Any, **options: Any) -> str:
                 return "ok"
 
-        result = call_command(Cmd())
-        assert result == "ok"
+        assert call_command(Cmd()) == "ok"

@@ -1,7 +1,8 @@
 import sys
 from typing import Any
 
-from python_base_command import BaseCommand, CommandError, CommandParser
+from python_base_command import BaseCommand, CommandError
+from python_base_command.base import CommandParser
 
 
 class Command(BaseCommand):
@@ -11,15 +12,15 @@ class Command(BaseCommand):
         parser.add_argument("name", type=str, help="Name to greet")
         parser.add_argument("--shout", action="store_true", help="Print in uppercase")
 
-    def handle(self, *args: Any, **options: Any) -> None:
-        if not (name := options["name"].strip()):
+    def handle(self, *_args: Any, **kwargs: Any) -> None:
+        if not (name := kwargs["name"].strip()):
             raise CommandError("Name cannot be empty.")
 
         msg = f"Hello, {name}!"
-        if options["shout"]:
+        if kwargs["shout"]:
             msg = msg.upper()
 
-        self.stdout.write(self.style.SUCCESS(msg))
+        self.logger.info(msg)
 
 
 if __name__ == "__main__":

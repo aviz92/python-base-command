@@ -14,7 +14,7 @@ with an underscore are ignored.
 Usage::
 
     # myapp/cli.py
-    from base_command.runner import Runner
+    from python_base_command.runner import Runner
 
     runner = Runner(commands_dir="commands")   # relative to this file
 
@@ -23,7 +23,7 @@ Usage::
 
 Then create ``commands/greet.py``::
 
-    from base_command import BaseCommand, CommandError
+    from python_base_command import BaseCommand, CommandError
 
     class Command(BaseCommand):
         help = "Greet someone"
