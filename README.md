@@ -1,10 +1,13 @@
+![PyPI version](https://img.shields.io/pypi/v/python-base-command)
+![Python](https://img.shields.io/badge/python->=3.12-blue)
+![Development Status](https://img.shields.io/badge/status-stable-green)
+![Maintenance](https://img.shields.io/maintenance/yes/2026)
+![PyPI](https://img.shields.io/pypi/dm/python-base-command)
+![License](https://img.shields.io/pypi/l/python-base-command)
+
+---
+
 # python-base-command
-
-[![PyPI version](https://img.shields.io/pypi/v/python-base-command)](https://pypi.org/project/python-base-command/)
-[![Python](https://img.shields.io/badge/python-%3E%3D3.12-blue)](https://pypi.org/project/python-base-command/)
-[![License](https://img.shields.io/pypi/l/python-base-command)](https://github.com/yourusername/python-base-command/blob/main/LICENSE)
-[![Maintenance](https://img.shields.io/badge/maintained-yes-green)](https://github.com/yourusername/python-base-command)
-
 A Django-style `BaseCommand` framework for **standalone** Python CLI tools — no Django required.
 
 If you've ever written a Django management command and wished you could use the same clean pattern anywhere in Python, this is for you.
@@ -37,9 +40,27 @@ Dependencies: [`custom-python-logger==2.0.13`](https://pypi.org/project/custom-p
 
 ## ⚡ Quick Start
 
+Start by creating `cli.py` — your entry point, the equivalent of Django's `manage.py`. You only need this once:
+
 ```python
-# greet.py
-import sys
+# cli.py
+from base_command import Runner
+
+Runner(commands_dir="commands").run()
+```
+
+Then add commands to a `commands/` folder:
+
+```
+myapp/
+├── cli.py               ← entry point (2 lines)
+└── commands/
+    ├── __init__.py
+    └── greet.py
+```
+
+```python
+# commands/greet.py
 from base_command import BaseCommand, CommandError
 
 
@@ -60,69 +81,16 @@ class Command(BaseCommand):
             msg = msg.upper()
 
         self.logger.info(msg)
-
-
-if __name__ == "__main__":
-    Command().run_from_argv(sys.argv)
 ```
+
+Run from anywhere inside the project:
 
 ```bash
-python greet.py Alice
-python greet.py Alice --shout
-python greet.py --help
-python greet.py --version
-```
-
----
-
-## 🗂 Auto-discovery (like Django's `manage.py`)
-
-Organize your commands in a folder — `Runner` discovers and loads them automatically.
-
-```
-myapp/
-├── cli.py
-└── commands/
-    ├── greet.py
-    └── export.py
-```
-
-Each file must define a `Command` class that subclasses `BaseCommand`:
-
-```python
-# commands/greet.py
-from base_command import BaseCommand, CommandError
-
-
-class Command(BaseCommand):
-    help = "Greet a user by name"
-
-    def add_arguments(self, parser):
-        parser.add_argument("name", type=str)
-        parser.add_argument("--shout", action="store_true")
-
-    def handle(self, **kwargs):
-        name = kwargs["name"].strip()
-        if not name:
-            raise CommandError("Name cannot be empty.")
-        msg = f"Hello, {name}!"
-        if kwargs["shout"]:
-            msg = msg.upper()
-        self.logger.info(msg)
-```
-
-```python
-# cli.py
-from base_command import Runner
-
-if __name__ == "__main__":
-    Runner(commands_dir="commands").run()
-```
-
-```bash
-python cli.py --help
+python cli.py --help                  # lists all available commands
 python cli.py greet Alice
 python cli.py greet Alice --shout
+python cli.py greet --version
+python cli.py greet --verbosity 2
 ```
 
 ---
