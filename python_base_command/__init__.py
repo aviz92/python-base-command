@@ -37,4 +37,7 @@ __all__ = [
     "call_command",
 ]
 
-build_logger(project_name="python-base-command")
+build_logger(
+    project_name="python-base-command",
+    log_format="%(asctime)s | %(levelname)s | %(message)s",
+)
