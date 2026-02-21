@@ -1,0 +1,126 @@
+"""
+Manual command registry.
+
+Allows registering commands by name and running them from a single entry point,
+without relying on the auto-discovery folder convention.
+
+Usage::
+
+    from base_command import BaseCommand, CommandRegistry
+
+    registry = CommandRegistry()
+
+    @registry.register("greet")
+    class GreetCommand(BaseCommand):
+        help = "Greet someone"
+
+        def add_arguments(self, parser):
+            parser.add_argument("name")
+
+        def handle(self, *args, **options):
+            self.stdout.write(self.style.SUCCESS(f"Hello, {options['name']}!"))
+
+    if __name__ == "__main__":
+        registry.run()
+"""
+
+import sys
+from typing import TYPE_CHECKING
+
+from custom_python_logger import build_logger
+
+if TYPE_CHECKING:
+    from .base import BaseCommand as BaseCommandType
+
+logger = build_logger(project_name="python-base-command")
+
+
+class CommandRegistry:
+    """
+    A registry that maps command names to ``BaseCommand`` subclasses and
+    exposes a single ``run()`` entry point.
+    """
+
+    def __init__(self):
+        self._commands: dict[str, type[BaseCommandType]] = {}
+
+    # ------------------------------------------------------------------ registration
+
+    def register(self, name: str):
+        """
+        Class decorator that registers a ``BaseCommand`` subclass under *name*.
+
+        Usage::
+
+            @registry.register("greet")
+            class GreetCommand(BaseCommand):
+                ...
+        """
+
+        def decorator(cls):
+            self._commands[name] = cls
+            return cls
+
+        return decorator
+
+    def add(self, name: str, command_class: type["BaseCommandType"]):
+        """
+        Programmatically register *command_class* under *name*.
+        """
+        self._commands[name] = command_class
+
+    # ------------------------------------------------------------------ lookup
+
+    def get(self, name: str) -> type["BaseCommandType"] | None:
+        """Return the command class registered under *name*, or ``None``."""
+        return self._commands.get(name)
+
+    def list_commands(self) -> list[str]:
+        """Return a sorted list of registered command names."""
+        return sorted(self._commands)
+
+    # ------------------------------------------------------------------ running
+
+    def run(self, argv: list[str] | None = None):
+        """
+        Parse *argv* (defaults to ``sys.argv``), find the requested command,
+        and run it.
+
+        The expected argv format is::
+
+            [prog, subcommand, ...args...]
+
+        e.g. ``["myapp", "greet", "Alice", "--shout"]``
+        """
+
+        argv = argv or sys.argv[:]
+
+        # Show top-level help if no subcommand is given.
+        if len(argv) < 2 or argv[1] in ("-h", "--help"):
+            self._print_help(argv[0] if argv else "unknown")
+            sys.exit(0)
+
+        subcommand = argv[1]
+        command_class = self._commands.get(subcommand)
+
+        if command_class is None:
+            prog = argv[0] if argv else "unknown"
+            available = ", ".join(self.list_commands()) or "(none registered)"
+            logger.error(
+                f"Unknown command: '{subcommand}'. "
+                f"Available commands: {available}. "
+                f"Type '{prog} --help' for usage."
+            )
+            sys.exit(1)
+
+        # Strip the subcommand so run_from_argv receives [prog, ...args]
+        command_class().run_from_argv([argv[0]] + argv[2:])
+
+    def _print_help(self, prog: str):
+        print(f"Usage: {prog} <command> [options]\n")
+        print("Available commands:")
+        for name in self.list_commands():
+            cls = self._commands[name]
+            desc = cls.help or "(no description)"
+            print(f"  {name:<20} {desc}")
+        print(f"\nRun '{prog} <command> --help' for command-specific help.")

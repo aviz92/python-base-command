@@ -177,3 +177,5 @@ cython_debug/
 logs/
 results_output/
 migrations/
+.cursor
+.vscode
