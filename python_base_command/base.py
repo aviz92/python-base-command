@@ -7,11 +7,12 @@ while keeping the full command-parsing and execution machinery.
 """
 
 import argparse
+import importlib.metadata
 import os
 import sys
-from argparse import ArgumentParser, HelpFormatter
+from argparse import Action, ArgumentParser, HelpFormatter
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, TextIO
 
 from .output import OutputWrapper
 from .style import Style, color_style, no_style
@@ -41,7 +42,7 @@ class CommandError(Exception):
     ``returncode`` controls the process exit code (default 1).
     """
 
-    def __init__(self, *args: Any, returncode: int = 1, **kwargs: Any):
+    def __init__(self, *args: Any, returncode: int = 1, **kwargs: Any) -> None:
         self.returncode = returncode
         super().__init__(*args, **kwargs)
 
@@ -65,7 +66,7 @@ class CommandParser(ArgumentParser):
         missing_args_message: str | None = None,
         called_from_command_line: bool | None = None,
         **kwargs: Any,
-    ):
+    ) -> None:
         self.missing_args_message = missing_args_message
         self.called_from_command_line = called_from_command_line
         super().__init__(**kwargs)
@@ -83,7 +84,7 @@ class CommandParser(ArgumentParser):
         if self.called_from_command_line:
             super().error(message)
         else:
-            raise CommandError("Error: %s" % message)
+            raise CommandError(f"Error: {message}")
 
 
 # ---------------------------------------------------------------------------
@@ -112,10 +113,16 @@ class CommandHelpFormatter(HelpFormatter):
             key=lambda a: bool(set(a.option_strings) & self.show_last),
         )
 
-    def add_usage(self, usage, actions, *args, **kwargs):  # type: ignore[override]
+    def add_usage(
+        self,
+        usage: str | None,
+        actions: list[Action],
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:  # type: ignore[override]
         super().add_usage(usage, self._reordered_actions(actions), *args, **kwargs)
 
-    def add_arguments(self, actions):  # type: ignore[override]
+    def add_arguments(self, actions: list[Action]) -> None:  # type: ignore[override]
         super().add_arguments(self._reordered_actions(actions))
 
 
@@ -174,11 +181,11 @@ class BaseCommand:
 
     def __init__(
         self,
-        stdout=None,
-        stderr=None,
+        stdout: TextIO | None = None,
+        stderr: TextIO | None = None,
         no_color: bool = False,
         force_color: bool = False,
-    ):
+    ) -> None:
         if no_color and force_color:
             raise CommandError("'no_color' and 'force_color' can't be used together.")
 
@@ -201,10 +208,8 @@ class BaseCommand:
         the ``--version`` flag.
         """
         try:
-            import importlib.metadata
-
             # Try to find the package that defines this command's module.
-            pkg = self.__module__.split(".")[0]
+            pkg = self.__module__.split(".", maxsplit=1)[0]
             return importlib.metadata.version(pkg)
         except Exception:
             return "unknown"
@@ -217,7 +222,7 @@ class BaseCommand:
         """
         kwargs.setdefault("formatter_class", CommandHelpFormatter)
         parser = CommandParser(
-            prog="%s %s" % (os.path.basename(prog_name), subcommand),
+            prog=f"{os.path.basename(prog_name)} {subcommand}",
             description=self.help or None,
             missing_args_message=self.missing_args_message,
             called_from_command_line=self._called_from_command_line,
@@ -262,7 +267,7 @@ class BaseCommand:
         self.add_arguments(parser)
         return parser
 
-    def add_base_argument(self, parser: CommandParser, *args: Any, **kwargs: Any):
+    def add_base_argument(self, parser: CommandParser, *args: Any, **kwargs: Any) -> None:
         """
         Add a base (common) argument, suppressing its help text if its option
         string is listed in ``suppressed_base_arguments``.
@@ -273,7 +278,7 @@ class BaseCommand:
                 break
         parser.add_argument(*args, **kwargs)
 
-    def add_arguments(self, parser: CommandParser):
+    def add_arguments(self, parser: CommandParser) -> None:
         """
         Override this method to add command-specific arguments.
 
@@ -284,14 +289,14 @@ class BaseCommand:
                 parser.add_argument("--dry-run", action="store_true")
         """
 
-    def print_help(self, prog_name: str, subcommand: str):
+    def print_help(self, prog_name: str, subcommand: str) -> None:
         """Print the help message for this command."""
         parser = self.create_parser(prog_name, subcommand)
         parser.print_help()
 
     # ------------------------------------------------------------------ execution
 
-    def run_from_argv(self, argv: list[str]):
+    def run_from_argv(self, argv: list[str]) -> None:
         """
         Primary entry point when the command is invoked from the CLI.
 
@@ -320,7 +325,7 @@ class BaseCommand:
         except CommandError as e:
             if options.traceback:
                 raise
-            self.stderr.write("%s: %s" % (e.__class__.__name__, e))
+            self.stderr.write(f"{e.__class__.__name__}: {e}")
             sys.exit(e.returncode)
         except KeyboardInterrupt:
             self.stderr.write("\nAborted.")
@@ -350,11 +355,10 @@ class BaseCommand:
         if options.get("stderr"):
             self.stderr = OutputWrapper(options["stderr"])
 
-        output = self.handle(*args, **options)
-
-        if output:
+        output: str | None = None
+        if output := self.handle(*args, **options):
             if self.output_transaction:
-                output = "BEGIN;\n%s\nCOMMIT;" % output
+                output = f"BEGIN;\n{output}\nCOMMIT;"
             self.stdout.write(output)
 
         return output
@@ -385,19 +389,18 @@ class LabelCommand(BaseCommand):
     label: str = "label"
     missing_args_message: str = "Enter at least one %s."
 
-    def __init__(self, *args: Any, **kwargs: Any):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         if self.missing_args_message == LabelCommand.missing_args_message:
             self.missing_args_message = self.missing_args_message % self.label
 
-    def add_arguments(self, parser: CommandParser):
+    def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument("args", metavar=self.label, nargs="+")
 
     def handle(self, *labels: str, **options: Any) -> str | None:
         output = []
         for label in labels:
-            result = self.handle_label(label, **options)
-            if result:
+            if result := self.handle_label(label, **options):
                 output.append(result)
         return "\n".join(output) if output else None
 

@@ -46,8 +46,12 @@ def call_command(
     CommandError
         Propagated from ``handle()`` so that callers can decide how to
         handle it (unlike CLI invocation, where it is caught and printed).
+    TypeError
+        If *command* is a type that is not a ``BaseCommand`` subclass.
     """
     if isinstance(command, type):
+        if not issubclass(command, BaseCommand):
+            raise TypeError(f"command must be a BaseCommand subclass, got {type(command)}")
         command = command()
 
     # Ensure base options have sensible defaults so execute() doesn't KeyError.

@@ -25,6 +25,7 @@ Usage::
 """
 
 import sys
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from custom_python_logger import build_logger
@@ -41,12 +42,12 @@ class CommandRegistry:
     exposes a single ``run()`` entry point.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._commands: dict[str, type[BaseCommandType]] = {}
 
     # ------------------------------------------------------------------ registration
 
-    def register(self, name: str):
+    def register(self, name: str) -> Callable[[type["BaseCommandType"]], type["BaseCommandType"]]:
         """
         Class decorator that registers a ``BaseCommand`` subclass under *name*.
 
@@ -57,13 +58,13 @@ class CommandRegistry:
                 ...
         """
 
-        def decorator(cls):
+        def decorator(cls: type["BaseCommandType"]) -> type["BaseCommandType"]:
             self._commands[name] = cls
             return cls
 
         return decorator
 
-    def add(self, name: str, command_class: type["BaseCommandType"]):
+    def add(self, name: str, command_class: type["BaseCommandType"]) -> None:
         """
         Programmatically register *command_class* under *name*.
         """
@@ -81,7 +82,7 @@ class CommandRegistry:
 
     # ------------------------------------------------------------------ running
 
-    def run(self, argv: list[str] | None = None):
+    def run(self, argv: list[str] | None = None) -> None:
         """
         Parse *argv* (defaults to ``sys.argv``), find the requested command,
         and run it.
@@ -96,14 +97,12 @@ class CommandRegistry:
         argv = argv or sys.argv[:]
 
         # Show top-level help if no subcommand is given.
-        if len(argv) < 2 or argv[1] in ("-h", "--help"):
+        if len(argv) < 2 or argv[1] in {"-h", "--help"}:
             self._print_help(argv[0] if argv else "unknown")
             sys.exit(0)
 
         subcommand = argv[1]
-        command_class = self._commands.get(subcommand)
-
-        if command_class is None:
+        if (command_class := self._commands.get(subcommand)) is None:
             prog = argv[0] if argv else "unknown"
             available = ", ".join(self.list_commands()) or "(none registered)"
             logger.error(
@@ -112,11 +111,9 @@ class CommandRegistry:
                 f"Type '{prog} --help' for usage."
             )
             sys.exit(1)
-
-        # Strip the subcommand so run_from_argv receives [prog, ...args]
         command_class().run_from_argv([argv[0]] + argv[2:])
 
-    def _print_help(self, prog: str):
+    def _print_help(self, prog: str) -> None:
         print(f"Usage: {prog} <command> [options]\n")
         print("Available commands:")
         for name in self.list_commands():

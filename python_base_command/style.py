@@ -4,6 +4,7 @@ Terminal color styles, mirroring Django's management color system.
 
 import os
 import sys
+from collections.abc import Callable
 
 ANSI_COLORS = {
     "SUCCESS": "\033[32m",  # green
@@ -43,7 +44,13 @@ class Style:
     or is a no-op if color is disabled.
     """
 
-    def __init__(self, use_color: bool = True):
+    # Declared for static analysis; set in __init__ from ANSI_COLORS.
+    SUCCESS: Callable[[str], str] = lambda x: x
+    ERROR: Callable[[str], str] = lambda x: x
+    WARNING: Callable[[str], str] = lambda x: x
+    NOTICE: Callable[[str], str] = lambda x: x
+
+    def __init__(self, use_color: bool = True) -> None:
         self._use_color = use_color
         for name, code in ANSI_COLORS.items():
             if name == "RESET":
@@ -54,7 +61,7 @@ class Style:
                 setattr(self, name, self._noop)
 
     @staticmethod
-    def _make_styler(code: str):
+    def _make_styler(code: str) -> Callable[[str], str]:
         def styler(text: str) -> str:
             return f"{code}{text}{ANSI_COLORS['RESET']}"
 

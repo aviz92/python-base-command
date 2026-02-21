@@ -4,7 +4,7 @@ Output wrapper that mirrors Django's OutputWrapper.
 
 from collections.abc import Callable
 from io import TextIOBase
-from typing import TextIO
+from typing import Any, TextIO
 
 
 class OutputWrapper:
@@ -18,21 +18,21 @@ class OutputWrapper:
         return self._style_func
 
     @style_func.setter
-    def style_func(self, style_func: Callable | None):
+    def style_func(self, style_func: Callable | None) -> None:
         if style_func and self.isatty():
             self._style_func = style_func
         else:
             self._style_func = lambda x: x
 
-    def __init__(self, out: TextIO, ending: str = "\n"):
+    def __init__(self, out: TextIO, ending: str = "\n") -> None:
         self._out = out
         self._style_func: Callable = lambda x: x
         self.ending = ending
 
-    def __getattr__(self, name: str):
+    def __getattr__(self, name: str) -> Any:
         return getattr(self._out, name)
 
-    def flush(self):
+    def flush(self) -> None:
         if hasattr(self._out, "flush"):
             self._out.flush()
 
@@ -44,7 +44,7 @@ class OutputWrapper:
         msg: str = "",
         style_func: Callable | None = None,
         ending: str | None = None,
-    ):
+    ) -> None:
         ending = self.ending if ending is None else ending
         if ending and not msg.endswith(ending):
             msg += ending

@@ -40,6 +40,7 @@ And run::
 """
 
 import importlib.util
+import inspect
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -70,10 +71,8 @@ class Runner:
         self,
         commands_dir: str | Path = "commands",
         caller_file: str | None = None,
-    ):
+    ) -> None:
         if caller_file is None:
-            import inspect
-
             frame = inspect.stack()[1]
             caller_file = frame.filename
 
@@ -96,12 +95,10 @@ class Runner:
             if path.stem.startswith("_"):
                 continue
 
-            module = self._load_module(path)
-            if module is None:
+            if (module := self._load_module(path)) is None:
                 continue
 
-            command_class = getattr(module, "Command", None)
-            if command_class is None:
+            if (command_class := getattr(module, "Command", None)) is None:
                 continue
             if not (isinstance(command_class, type) and issubclass(command_class, BaseCommand)):
                 continue
@@ -127,7 +124,7 @@ class Runner:
 
     # ------------------------------------------------------------------ running
 
-    def run(self, argv: list[str] | None = None):
+    def run(self, argv: list[str] | None = None) -> None:
         """
         Parse *argv* (defaults to ``sys.argv``), discover commands, find the
         requested one, and run it.
@@ -136,14 +133,12 @@ class Runner:
         commands = self._discover()
 
         # Show top-level help if no subcommand is given.
-        if len(argv) < 2 or argv[1] in ("-h", "--help"):
+        if len(argv) < 2 or argv[1] in {"-h", "--help"}:
             self._print_help(argv[0] if argv else "unknown", commands)
             sys.exit(0)
 
         subcommand = argv[1]
-        command_class = commands.get(subcommand)
-
-        if command_class is None:
+        if (command_class := commands.get(subcommand)) is None:
             prog = argv[0] if argv else "unknown"
             available = ", ".join(sorted(commands)) or "(none found)"
             logger.error(
@@ -152,12 +147,10 @@ class Runner:
                 f"Type '{prog} --help' for usage."
             )
             sys.exit(1)
-
-        # Strip the subcommand so run_from_argv receives [prog, ...args]
         command_class().run_from_argv([argv[0]] + argv[2:])
 
     @staticmethod
-    def _print_help(prog: str, commands: dict[str, type[BaseCommand]]):
+    def _print_help(prog: str, commands: dict[str, type[BaseCommand]]) -> None:
         print(f"Usage: {prog} <command> [options]\n")
         print("Available commands:")
         for name, cls in sorted(commands.items()):
