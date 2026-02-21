@@ -15,6 +15,8 @@ Public API
 - call_command     — programmatic command invocation
 """
 
+from custom_python_logger import build_logger
+
 from .base import (
     BaseCommand,
     CommandError,
@@ -35,4 +37,4 @@ __all__ = [
     "call_command",
 ]
 
-__version__ = "0.1.0"
+build_logger(project_name="python-base-command")

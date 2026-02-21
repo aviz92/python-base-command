@@ -28,12 +28,12 @@ import sys
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from custom_python_logger import build_logger
+from custom_python_logger import get_logger
 
 if TYPE_CHECKING:
     from .base import BaseCommand as BaseCommandType
 
-logger = build_logger(project_name="python-base-command")
+logger = get_logger(name="python-base-command")
 
 
 class CommandRegistry:

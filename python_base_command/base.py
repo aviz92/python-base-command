@@ -13,7 +13,7 @@ from argparse import Action, ArgumentParser, HelpFormatter
 from collections.abc import Sequence
 from typing import Any, TextIO
 
-from custom_python_logger import CustomLoggerAdapter, build_logger
+from custom_python_logger import CustomLoggerAdapter, get_logger
 
 __all__ = [
     "BaseCommand",
@@ -21,6 +21,7 @@ __all__ = [
     "CommandParser",
     "LabelCommand",
 ]
+
 
 # ---------------------------------------------------------------------------
 # Exceptions
@@ -167,9 +168,7 @@ class BaseCommand:
         stderr: TextIO | None = None,
     ) -> None:
         _ = stdout, stderr  # API compatibility with call_command(stdout=..., stderr=...)
-        self.logger: CustomLoggerAdapter = build_logger(
-            project_name=self.__class__.__module__.split(".", maxsplit=1)[0]
-        )
+        self.logger: CustomLoggerAdapter = get_logger(name=self.__class__.__module__.split(".", maxsplit=1)[0])
 
     # ------------------------------------------------------------------ version
 

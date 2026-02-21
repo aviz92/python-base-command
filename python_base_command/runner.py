@@ -45,11 +45,11 @@ import sys
 from pathlib import Path
 from types import ModuleType
 
-from custom_python_logger import build_logger
+from custom_python_logger import get_logger
 
 from .base import BaseCommand
 
-logger = build_logger(project_name="python-base-command")
+logger = get_logger(name="python-base-command")
 
 
 class Runner:
