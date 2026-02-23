@@ -48,6 +48,7 @@ from typing import Optional
 
 from custom_python_logger import get_logger
 
+from . import CommandRegistry
 from .base import BaseCommand, CommandError
 
 logger = get_logger("python-base-command")
@@ -78,8 +79,15 @@ class Runner:
 
     def _discover(self) -> dict[str, type[BaseCommand]]:
         """
-        Walk ``self._commands_dir`` and import every non-private module that
-        exposes a ``Command`` class inheriting from ``BaseCommand``.
+        Walk ``self._commands_dir`` and import every non-private module.
+
+        Two conventions are supported per module:
+
+        1. **Classic** — a class literally named ``Command`` that subclasses
+           ``BaseCommand``.  The command name is the module's file stem.
+        2. **Registry** — one or more ``CommandRegistry`` instances defined at
+           module level.  Every command registered on those instances is merged
+           in; the names come from the registry (not the file stem).
         """
         commands: dict[str, type[BaseCommand]] = {}
 
@@ -94,15 +102,19 @@ class Runner:
             if module is None:
                 continue
 
+            # --- 1. Classic: a top-level class named "Command" ---
             command_class = getattr(module, "Command", None)
-            if command_class is None:
-                continue
-            if not (
-                isinstance(command_class, type) and issubclass(command_class, BaseCommand)
-            ):
-                continue
+            if command_class is not None and isinstance(command_class, type) and issubclass(command_class, BaseCommand):
+                commands[path.stem] = command_class
 
-            commands[path.stem] = command_class
+            # --- 2. Registry: any CommandRegistry instances in the module ---
+            for attr_name in dir(module):
+                obj = getattr(module, attr_name)
+                if isinstance(obj, CommandRegistry):
+                    for name in obj.list_commands():
+                        cls = obj.get(name)
+                        if cls is not None:
+                            commands[name] = cls
 
         return commands
 
