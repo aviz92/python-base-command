@@ -40,16 +40,14 @@ And run::
 """
 
 import importlib.util
-import os
 import sys
 from pathlib import Path
 from types import ModuleType
-from typing import Optional
 
 from custom_python_logger import get_logger
 
 from . import CommandRegistry
-from .base import BaseCommand, CommandError
+from .base import BaseCommand
 
 logger = get_logger("python-base-command")
 
@@ -70,7 +68,7 @@ class Runner:
     def __init__(
         self,
         commands_dir: str | Path = "commands",
-    ):
+    ) -> None:
         # Resolve relative to cwd — the directory the user runs the script from,
         # just like Django resolves manage.py commands from the project root.
         self._commands_dir = (Path.cwd() / commands_dir).resolve()
@@ -98,8 +96,7 @@ class Runner:
             if path.stem.startswith("_"):
                 continue
 
-            module = self._load_module(path)
-            if module is None:
+            if (module := self._load_module(path)) is None:
                 continue
 
             # --- 1. Classic: a top-level class named "Command" ---
@@ -112,14 +109,13 @@ class Runner:
                 obj = getattr(module, attr_name)
                 if isinstance(obj, CommandRegistry):
                     for name in obj.list_commands():
-                        cls = obj.get(name)
-                        if cls is not None:
+                        if (cls := obj.get(name)) is not None:
                             commands[name] = cls
 
         return commands
 
     @staticmethod
-    def _load_module(path: Path) -> Optional[ModuleType]:
+    def _load_module(path: Path) -> ModuleType | None:
         """Dynamically load a Python file as a module."""
         module_name = f"_base_command_discovered_.{path.stem}"
         spec = importlib.util.spec_from_file_location(module_name, path)
@@ -135,7 +131,7 @@ class Runner:
 
     # ------------------------------------------------------------------ running
 
-    def run(self, argv: list[str] | None = None):
+    def run(self, argv: list[str] | None = None) -> None:
         """
         Parse *argv* (defaults to ``sys.argv``), discover commands, find the
         requested one, and run it.
@@ -144,14 +140,12 @@ class Runner:
         commands = self._discover()
 
         # Show top-level help if no subcommand is given.
-        if len(argv) < 2 or argv[1] in ("-h", "--help"):
+        if len(argv) < 2 or argv[1] in {"-h", "--help"}:
             self._print_help(argv[0] if argv else "unknown", commands)
             sys.exit(0)
 
         subcommand = argv[1]
-        command_class = commands.get(subcommand)
-
-        if command_class is None:
+        if (command_class := commands.get(subcommand)) is None:
             prog = argv[0] if argv else "unknown"
             available = ", ".join(sorted(commands)) or "(none found)"
             logger.error(
@@ -165,7 +159,7 @@ class Runner:
         command_class().run_from_argv([argv[0]] + argv[2:])
 
     @staticmethod
-    def _print_help(prog: str, commands: dict[str, type[BaseCommand]]):
+    def _print_help(prog: str, commands: dict[str, type[BaseCommand]]) -> None:
         print(f"Usage: {prog} <command> [options]\n")
         print("Available commands:")
         for name, cls in sorted(commands.items()):
