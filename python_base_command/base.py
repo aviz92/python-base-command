@@ -6,7 +6,6 @@ replacing self.stdout / self.style with self.logger from custom-python-logger.
 """
 
 import argparse
-import importlib.metadata
 import os
 import sys
 from argparse import Action, ArgumentParser, HelpFormatter
@@ -142,6 +141,8 @@ class BaseCommand:
     ----------
     help : str
         Short description printed in --help output.
+    version : str
+        Version string exposed via --version. Set this per command.
     output_transaction : bool
         If True, wrap any string returned by handle() with BEGIN; / COMMIT;.
     suppressed_base_arguments : set[str]
@@ -153,6 +154,7 @@ class BaseCommand:
     """
 
     help: str = ""
+    version: str = "unknown"
     output_transaction: bool = False
     suppressed_base_arguments: set[str] = set()
     stealth_options: tuple[str, ...] = ()
@@ -169,19 +171,6 @@ class BaseCommand:
     ) -> None:
         _ = stdout, stderr  # API compatibility with call_command(stdout=..., stderr=...)
         self.logger: CustomLoggerAdapter = get_logger(name=self.__class__.__module__.split(".", maxsplit=1)[0])
-
-    # ------------------------------------------------------------------ version
-
-    def get_version(self) -> str:
-        """
-        Return the version string for this command.
-        Override to expose your own application version via --version.
-        """
-        try:
-            pkg = self.__module__.split(".", maxsplit=1)[0]
-            return importlib.metadata.version(pkg)
-        except Exception:
-            return "unknown"
 
     # ------------------------------------------------------------------ parser
 
@@ -200,7 +189,7 @@ class BaseCommand:
             parser,
             "--version",
             action="version",
-            version=self.get_version(),
+            version=self.version,
             help="Show program's version number and exit.",
         )
         self.add_base_argument(

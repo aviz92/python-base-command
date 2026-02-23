@@ -44,7 +44,7 @@ Start by creating `cli.py` — your entry point, the equivalent of Django's `man
 
 ```python
 # cli.py
-from base_command import Runner
+from python_base_command import Runner
 
 Runner(commands_dir="commands").run()
 ```
@@ -61,11 +61,12 @@ myapp/
 
 ```python
 # commands/greet.py
-from base_command import BaseCommand, CommandError
+from python_base_command import BaseCommand, CommandError
 
 
 class Command(BaseCommand):
     help = "Greet a user by name"
+    version = "1.0.0"
 
     def add_arguments(self, parser):
         parser.add_argument("name", type=str, help="Name to greet")
@@ -86,21 +87,26 @@ class Command(BaseCommand):
 Run from anywhere inside the project:
 
 ```bash
-python cli.py --help                  # lists all available commands
-python cli.py greet Alice
-python cli.py greet Alice --shout
-python cli.py greet --version
-python cli.py greet --verbosity 2
+python3 cli.py --help                  # lists all available commands
+python3 cli.py greet Alice
+python3 cli.py greet Alice --shout
+python3 cli.py greet --version
+python3 cli.py greet --verbosity 2
 ```
 
 ---
 
 ## 📋 Manual Registry
 
-Register commands explicitly using the `@registry.register()` decorator — useful when commands live across different modules.
+Register commands explicitly using the `@registry.register()` decorator — useful when you want multiple commands in a single file.
+
+The registry style works in two ways:
+
+**Standalone** — run the registry directly as a script:
 
 ```python
-from base_command import BaseCommand, CommandError, CommandRegistry
+# my_commands.py
+from python_base_command import BaseCommand, CommandError, CommandRegistry
 
 registry = CommandRegistry()
 
@@ -136,10 +142,26 @@ if __name__ == "__main__":
 ```
 
 ```bash
-python cli.py --help
-python cli.py greet Alice
-python cli.py export --format json
-python cli.py export --dry-run
+python3 my_commands.py greet Alice
+python3 my_commands.py export --format json
+python3 my_commands.py export --dry-run
+```
+
+**Auto-discovered** — drop the registry file into your `commands/` folder and `Runner` will discover it automatically alongside any classic `Command` files:
+
+```
+myapp/
+├── cli.py
+└── commands/
+    ├── __init__.py
+    ├── greet.py       ← classic Command class
+    └── reg_cmd.py     ← CommandRegistry with multiple commands
+```
+
+```bash
+python3 cli.py --help          # shows commands from both files
+python3 cli.py greet Alice
+python3 cli.py export --format json
 ```
 
 ---
@@ -149,7 +171,7 @@ python cli.py export --dry-run
 Invoke commands programmatically — ideal for unit tests.
 
 ```python
-from base_command import call_command, CommandError
+from python_base_command import call_command, CommandError
 import pytest
 
 from commands.greet import Command as GreetCommand
@@ -180,6 +202,7 @@ Base class for all commands. Inherit from it and implement `handle()`.
 | Attribute | Type | Default | Description |
 |---|---|---|---|
 | `help` | `str` | `""` | Description shown in `--help` |
+| `version` | `str` | `"unknown"` | Version string exposed via `--version`. Set this per command. |
 | `output_transaction` | `bool` | `False` | Wrap `handle()` return value in `BEGIN;` / `COMMIT;` |
 | `suppressed_base_arguments` | `set[str]` | `set()` | Base flags to hide from `--help` |
 | `stealth_options` | `tuple[str]` | `()` | Options used but not declared via `add_arguments()` |
@@ -191,7 +214,6 @@ Base class for all commands. Inherit from it and implement `handle()`.
 |---|---|---|
 | `handle(**kwargs)` | ✅ | Command logic. May return a string. |
 | `add_arguments(parser)` | ❌ | Add command-specific arguments to the parser. |
-| `get_version()` | ❌ | Override to expose your package version via `--version`. |
 
 **`self.logger`**
 
@@ -233,7 +255,7 @@ raise CommandError("Fatal error.", returncode=2)
 For commands that accept one or more arbitrary string labels. Override `handle_label()` instead of `handle()`.
 
 ```python
-from base_command import LabelCommand, CommandError
+from python_base_command import LabelCommand, CommandError
 
 
 class Command(LabelCommand):
@@ -256,23 +278,26 @@ class Command(LabelCommand):
 ```
 
 ```bash
-python cli.py process report.csv notes.txt image.png
-python cli.py process report.csv notes.txt image.png --strict
+python3 cli.py process report.csv notes.txt image.png
+python3 cli.py process report.csv notes.txt image.png --strict
 ```
 
 ---
 
 ### `Runner`
 
-Auto-discovers commands from a directory. Every `.py` file in the folder that defines a `Command` class subclassing `BaseCommand` is automatically registered.
+Auto-discovers commands from a directory. Two conventions are supported:
+
+1. **Classic** — a `.py` file that defines a class named `Command` subclassing `BaseCommand`. The command name is the file stem.
+2. **Registry** — a `.py` file that defines one or more `CommandRegistry` instances. Every command registered on those instances is merged in automatically; command names come from the registry, not the file name.
+
+Files whose names start with `_` are ignored.
 
 ```python
-from base_command import Runner
+from python_base_command import Runner
 
 Runner(commands_dir="commands").run()
 ```
-
-Files whose names start with `_` are ignored.
 
 ---
 
@@ -281,17 +306,19 @@ Files whose names start with `_` are ignored.
 Manually register commands using a decorator or programmatically.
 
 ```python
-from base_command import CommandRegistry
+from python_base_command import BaseCommand, CommandRegistry
 
 registry = CommandRegistry()
+
 
 @registry.register("greet")
 class GreetCommand(BaseCommand): ...
 
+
 registry.add("export", ExportCommand)  # programmatic alternative
 
-registry.run()                                    # uses sys.argv
-registry.run(["myapp", "greet", "Alice"])         # explicit argv
+registry.run()                                      # uses sys.argv
+registry.run(["myapp", "greet", "Alice"])           # explicit argv
 ```
 
 ---
@@ -301,7 +328,7 @@ registry.run(["myapp", "greet", "Alice"])         # explicit argv
 Invoke a command from Python code. Accepts either a class or an instance.
 
 ```python
-from base_command import call_command
+from python_base_command import call_command
 
 call_command(GreetCommand, name="Alice")
 call_command(GreetCommand, name="Alice", verbosity=0)

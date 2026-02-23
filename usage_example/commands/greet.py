@@ -7,6 +7,7 @@ from python_base_command.base import CommandParser
 
 class Command(BaseCommand):
     help = "Greet a user by name"
+    version = "1.0.0"
 
     def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument("name", type=str, help="Name to greet")
