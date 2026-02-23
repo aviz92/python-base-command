@@ -114,6 +114,7 @@ registry = CommandRegistry()
 @registry.register("greet")
 class GreetCommand(BaseCommand):
     help = "Greet a user"
+    version = "2.0.0"
 
     def add_arguments(self, parser):
         parser.add_argument("name", type=str)
@@ -125,6 +126,7 @@ class GreetCommand(BaseCommand):
 @registry.register("export")
 class ExportCommand(BaseCommand):
     help = "Export data"
+    version = "3.0.0"
 
     def add_arguments(self, parser):
         parser.add_argument("--format", choices=["csv", "json"], default="csv")
