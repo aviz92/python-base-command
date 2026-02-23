@@ -46,8 +46,8 @@ from types import ModuleType
 
 from custom_python_logger import get_logger
 
-from . import CommandRegistry
-from .base import BaseCommand
+from python_base_command.base import BaseCommand
+from python_base_command.registry import CommandRegistry
 
 logger = get_logger("python-base-command")
 
