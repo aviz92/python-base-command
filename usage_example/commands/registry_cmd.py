@@ -11,7 +11,8 @@ class Greet2Command(BaseCommand):
 
     def __init__(self) -> None:
         super().__init__()
-        self.set_project_version("python-base-command")
+        # self.set_project_version("python-base-command")
+        self.set_project_version()
 
     def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument("name", type=str)

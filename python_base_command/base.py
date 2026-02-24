@@ -22,6 +22,7 @@ __all__ = [
     "LabelCommand",
 ]
 
+from python_base_toolkit.utils.path_utils import get_project_path_by_file
 
 # ---------------------------------------------------------------------------
 # Exceptions
@@ -180,8 +181,14 @@ class BaseCommand:
 
     # ------------------------------------------------------------------ parser
 
-    def set_project_version(self, project_name: str) -> None:
-        self.version = version(project_name)
+    def set_project_version(self, project_name: str | None = None) -> None:
+        if not project_name:
+            try:
+                project_path = get_project_path_by_file()
+                project_name = project_path.name
+            except Exception:
+                self.logger.warning("Project name not provided and could not be inferred from file markers.")
+        self.version = version(project_name) if project_name else self.version
 
     def create_parser(self, prog_name: str, subcommand: str, **kwargs: Any) -> CommandParser:
         """Create and return the CommandParser used to parse arguments."""
