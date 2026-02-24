@@ -173,6 +173,9 @@ class BaseCommand:
         self.logger: CustomLoggerAdapter = get_logger(name=self.__class__.__module__.split(".", maxsplit=1)[0])
 
     # ------------------------------------------------------------------ parser
+    def set_project_version(self, project_name: str) -> None:
+        from importlib.metadata import version
+        self.version = version(project_name)
 
     def create_parser(self, prog_name: str, subcommand: str, **kwargs: Any) -> CommandParser:
         """Create and return the CommandParser used to parse arguments."""

@@ -84,6 +84,25 @@ class Command(BaseCommand):
         self.logger.info(msg)
 ```
 
+```python
+# commands/greet.py
+from python_base_command import BaseCommand, CommandError
+
+
+class Command(BaseCommand):
+    help = "Greet a user by name"
+    
+    def __init__(self) -> None:
+        super().__init__()
+        self.set_project_version("python-base-command")
+
+    def add_arguments(self, parser):
+        pass
+
+    def handle(self, **kwargs):
+        pass
+```
+
 Run from anywhere inside the project:
 
 ```bash

@@ -9,6 +9,10 @@ registry = CommandRegistry()
 class Greet2Command(BaseCommand):
     help = "Greet a user"
 
+    def __init__(self) -> None:
+        super().__init__()
+        self.set_project_version("python-base-command")
+
     def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument("name", type=str)
 
@@ -19,6 +23,7 @@ class Greet2Command(BaseCommand):
 @registry.register("export")
 class ExportCommand(BaseCommand):
     help = "Export data"
+    version = "1.0.0"
 
     def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument("--format", choices=["csv", "json"], default="csv")
