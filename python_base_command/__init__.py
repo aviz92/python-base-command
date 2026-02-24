@@ -14,9 +14,6 @@ Public API
 - Runner           — auto-discovery runner (folder-based, like manage.py)
 - call_command     — programmatic command invocation
 """
-import os
-
-from custom_python_logger import build_logger
 
 from .base import (
     BaseCommand,
@@ -37,9 +34,3 @@ __all__ = [
     "Runner",
     "call_command",
 ]
-
-build_logger(
-    project_name="python-base-command",
-    log_format="%(asctime)s | %(levelname)s | %(message)s",
-    log_file=os.getenv("PYTHON_BASE_COMMAND_LOG_FILE", "true").lower() == "true"
-)

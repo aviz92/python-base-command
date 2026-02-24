@@ -91,7 +91,7 @@ from python_base_command import BaseCommand, CommandError
 
 class Command(BaseCommand):
     help = "Greet a user by name"
-    
+
     def __init__(self) -> None:
         super().__init__()
         self.set_project_version("python-base-command")

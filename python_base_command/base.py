@@ -10,9 +10,10 @@ import os
 import sys
 from argparse import Action, ArgumentParser, HelpFormatter
 from collections.abc import Sequence
+from importlib.metadata import version
 from typing import Any, TextIO
 
-from custom_python_logger import CustomLoggerAdapter, get_logger
+from custom_python_logger import CustomLoggerAdapter, build_logger, get_logger
 
 __all__ = [
     "BaseCommand",
@@ -171,10 +172,15 @@ class BaseCommand:
     ) -> None:
         _ = stdout, stderr  # API compatibility with call_command(stdout=..., stderr=...)
         self.logger: CustomLoggerAdapter = get_logger(name=self.__class__.__module__.split(".", maxsplit=1)[0])
+        build_logger(
+            project_name=self.__class__.__name__,
+            log_format="%(asctime)s | %(levelname)s | %(message)s",
+            log_file=os.getenv("PYTHON_BASE_COMMAND_LOG_FILE", "true").lower() == "true",
+        )
 
     # ------------------------------------------------------------------ parser
+
     def set_project_version(self, project_name: str) -> None:
-        from importlib.metadata import version
         self.version = version(project_name)
 
     def create_parser(self, prog_name: str, subcommand: str, **kwargs: Any) -> CommandParser:
@@ -265,7 +271,6 @@ class BaseCommand:
         If handle() returns a string and output_transaction is True,
         wraps it in BEGIN; / COMMIT;.
         """
-        output: str | None = None
         if output := self.handle(**kwargs):
             if self.output_transaction:
                 output = f"BEGIN;\n{output}\nCOMMIT;"
