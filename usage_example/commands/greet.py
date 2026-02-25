@@ -10,7 +10,7 @@ class Command(BaseCommand):
     version = "1.0.0"
 
     def add_arguments(self, parser: CommandParser) -> None:
-        parser.add_argument("name", type=str, help="Name to greet")
+        parser.add_argument("--name", type=str, help="Name to greet")
         parser.add_argument("--shout", action="store_true", help="Print in uppercase")
 
     def handle(self, *_args: Any, **kwargs: Any) -> None:
