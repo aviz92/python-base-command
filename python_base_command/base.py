@@ -177,7 +177,7 @@ class BaseCommand:
 
         build_logger(
             project_name=os.getenv(
-                "PYTHON_BASE_COMMAND_PROJECT_NAME", f'{self.__class__.__name__}__{get_current_date_time_str()}'
+                "PYTHON_BASE_COMMAND_PROJECT_NAME", f"{self.__class__.__name__}__{get_current_date_time_str()}"
             ),
             log_format=os.getenv("PYTHON_BASE_COMMAND_LOG_FORMAT", "%(asctime)s | %(levelname)s | %(message)s"),
             log_file=os.getenv("PYTHON_BASE_COMMAND_LOG_FILE", "true").lower() == "true",
