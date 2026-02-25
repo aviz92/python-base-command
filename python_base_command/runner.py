@@ -40,6 +40,7 @@ And run::
 """
 
 import importlib.util
+import os
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -47,9 +48,8 @@ from types import ModuleType
 from custom_python_logger import get_logger
 
 from python_base_command.base import BaseCommand
+from python_base_command.const import CURRENT_DATE_TIME_STR
 from python_base_command.registry import CommandRegistry
-
-logger = get_logger("python-base-command")
 
 
 class Runner:
@@ -71,9 +71,10 @@ class Runner:
     ) -> None:
         # Resolve relative to cwd — the directory the user runs the script from,
         # just like Django resolves manage.py commands from the project root.
+        self.logger = get_logger(
+            name=os.getenv("PYTHON_BASE_COMMAND_PROJECT_NAME", f"{self.__class__.__name__}__{CURRENT_DATE_TIME_STR}")
+        )
         self._commands_dir = (Path.cwd() / commands_dir).resolve()
-
-    # ------------------------------------------------------------------ discovery
 
     def _discover(self) -> dict[str, type[BaseCommand]]:
         """
@@ -114,8 +115,7 @@ class Runner:
 
         return commands
 
-    @staticmethod
-    def _load_module(path: Path) -> ModuleType | None:
+    def _load_module(self, path: Path) -> ModuleType | None:
         """Dynamically load a Python file as a module."""
         module_name = f"_base_command_discovered_.{path.stem}"
         spec = importlib.util.spec_from_file_location(module_name, path)
@@ -125,11 +125,9 @@ class Runner:
         try:
             spec.loader.exec_module(module)  # type: ignore[attr-defined]
         except Exception as exc:
-            logger.error(f"Error loading command module '{path}': {exc}")
+            self.logger.error(f"Error loading command module '{path}': {exc}")
             return None
         return module
-
-    # ------------------------------------------------------------------ running
 
     def run(self, argv: list[str] | None = None) -> None:
         """
@@ -148,7 +146,7 @@ class Runner:
         if (command_class := commands.get(subcommand)) is None:
             prog = argv[0] if argv else "unknown"
             available = ", ".join(sorted(commands)) or "(none found)"
-            logger.error(
+            self.logger.error(
                 f"Unknown command: '{subcommand}'. "
                 f"Available commands: {available}. "
                 f"Type '{prog} --help' for usage."

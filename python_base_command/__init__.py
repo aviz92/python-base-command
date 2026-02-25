@@ -15,15 +15,10 @@ Public API
 - call_command     — programmatic command invocation
 """
 
-from .base import (
-    BaseCommand,
-    CommandError,
-    CommandParser,
-    LabelCommand,
-)
-from .registry import CommandRegistry
-from .runner import Runner
-from .utils import call_command
+from python_base_command.base import BaseCommand, CommandError, CommandParser, LabelCommand
+from python_base_command.registry import CommandRegistry
+from python_base_command.runner import Runner
+from python_base_command.utils import call_command
 
 __all__ = [
     "BaseCommand",

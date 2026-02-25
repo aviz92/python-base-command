@@ -1,6 +1,7 @@
 from typing import Any
 
-from python_base_command import BaseCommand, CommandParser, CommandRegistry
+from python_base_command.base import BaseCommand, CommandParser
+from python_base_command.registry import CommandRegistry
 
 registry = CommandRegistry()
 

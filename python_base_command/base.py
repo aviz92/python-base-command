@@ -14,20 +14,9 @@ from importlib.metadata import version
 from typing import Any, TextIO
 
 from custom_python_logger import CustomLoggerAdapter, build_logger, get_logger
-from python_base_toolkit.utils.date_time import get_current_date_time_str
 from python_base_toolkit.utils.path_utils import get_project_path_by_file
 
-__all__ = [
-    "BaseCommand",
-    "CommandError",
-    "CommandParser",
-    "LabelCommand",
-]
-
-
-# ---------------------------------------------------------------------------
-# Exceptions
-# ---------------------------------------------------------------------------
+from python_base_command.const import CURRENT_DATE_TIME_STR, LOG_FILE, LOG_FORMAT
 
 
 class CommandError(Exception):
@@ -43,11 +32,6 @@ class CommandError(Exception):
     def __init__(self, *args: Any, returncode: int = 1, **kwargs: Any) -> None:
         self.returncode = returncode
         super().__init__(*args, **kwargs)
-
-
-# ---------------------------------------------------------------------------
-# Argument parser
-# ---------------------------------------------------------------------------
 
 
 class CommandParser(ArgumentParser):
@@ -83,11 +67,6 @@ class CommandParser(ArgumentParser):
             raise CommandError(f"Error: {message}")
 
 
-# ---------------------------------------------------------------------------
-# Help formatter
-# ---------------------------------------------------------------------------
-
-
 class CommandHelpFormatter(HelpFormatter):
     """
     Pushes common base arguments to the bottom of --help output so that
@@ -119,11 +98,6 @@ class CommandHelpFormatter(HelpFormatter):
 
     def add_arguments(self, actions: list[Action]) -> None:
         super().add_arguments(self._reordered_actions(actions))
-
-
-# ---------------------------------------------------------------------------
-# BaseCommand
-# ---------------------------------------------------------------------------
 
 
 class BaseCommand:
@@ -165,8 +139,6 @@ class BaseCommand:
 
     _called_from_command_line: bool = False
 
-    # ------------------------------------------------------------------ init
-
     def __init__(
         self,
         stdout: TextIO | None = None,
@@ -177,13 +149,11 @@ class BaseCommand:
 
         build_logger(
             project_name=os.getenv(
-                "PYTHON_BASE_COMMAND_PROJECT_NAME", f"{self.__class__.__name__}__{get_current_date_time_str()}"
+                "PYTHON_BASE_COMMAND_PROJECT_NAME", f"{self.__class__.__name__}__{CURRENT_DATE_TIME_STR}"
             ),
-            log_format=os.getenv("PYTHON_BASE_COMMAND_LOG_FORMAT", "%(asctime)s | %(levelname)s | %(message)s"),
-            log_file=os.getenv("PYTHON_BASE_COMMAND_LOG_FILE", "true").lower() == "true",
+            log_format=LOG_FORMAT,
+            log_file=LOG_FILE,
         )
-
-    # ------------------------------------------------------------------ parser
 
     def set_project_version(self, project_name: str | None = None) -> None:
         if not project_name:
@@ -247,8 +217,6 @@ class BaseCommand:
         parser = self.create_parser(prog_name, subcommand)
         parser.print_help()
 
-    # ------------------------------------------------------------------ execution
-
     def run_from_argv(self, argv: list[str]) -> None:
         """
         Primary entry point when the command is invoked from the CLI.
@@ -297,11 +265,6 @@ class BaseCommand:
         May return a string (used with output_transaction).
         """
         raise NotImplementedError("Subclasses of BaseCommand must implement a handle() method.")
-
-
-# ---------------------------------------------------------------------------
-# LabelCommand
-# ---------------------------------------------------------------------------
 
 
 class LabelCommand(BaseCommand):

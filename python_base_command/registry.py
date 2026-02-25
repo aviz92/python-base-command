@@ -24,16 +24,17 @@ Usage::
         registry.run()
 """
 
+import os
 import sys
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from custom_python_logger import get_logger
 
-if TYPE_CHECKING:
-    from .base import BaseCommand as BaseCommandType
+from python_base_command.const import CURRENT_DATE_TIME_STR
 
-logger = get_logger(name="python-base-command")
+if TYPE_CHECKING:
+    from python_base_command.base import BaseCommand as BaseCommandType
 
 
 class CommandRegistry:
@@ -43,9 +44,11 @@ class CommandRegistry:
     """
 
     def __init__(self) -> None:
-        self._commands: dict[str, type[BaseCommandType]] = {}
+        self.logger = get_logger(
+            name=os.getenv("PYTHON_BASE_COMMAND_PROJECT_NAME", f"{self.__class__.__name__}__{CURRENT_DATE_TIME_STR}")
+        )
 
-    # ------------------------------------------------------------------ registration
+        self._commands: dict[str, type[BaseCommandType]] = {}
 
     def register(self, name: str) -> Callable[[type["BaseCommandType"]], type["BaseCommandType"]]:
         """
@@ -70,8 +73,6 @@ class CommandRegistry:
         """
         self._commands[name] = command_class
 
-    # ------------------------------------------------------------------ lookup
-
     def get(self, name: str) -> type["BaseCommandType"] | None:
         """Return the command class registered under *name*, or ``None``."""
         return self._commands.get(name)
@@ -79,8 +80,6 @@ class CommandRegistry:
     def list_commands(self) -> list[str]:
         """Return a sorted list of registered command names."""
         return sorted(self._commands)
-
-    # ------------------------------------------------------------------ running
 
     def run(self, argv: list[str] | None = None) -> None:
         """
@@ -105,7 +104,7 @@ class CommandRegistry:
         if (command_class := self._commands.get(subcommand)) is None:
             prog = argv[0] if argv else "unknown"
             available = ", ".join(self.list_commands()) or "(none registered)"
-            logger.error(
+            self.logger.error(
                 f"Unknown command: '{subcommand}'. "
                 f"Available commands: {available}. "
                 f"Type '{prog} --help' for usage."
