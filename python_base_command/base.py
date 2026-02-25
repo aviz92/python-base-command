@@ -14,6 +14,8 @@ from importlib.metadata import version
 from typing import Any, TextIO
 
 from custom_python_logger import CustomLoggerAdapter, build_logger, get_logger
+from python_base_toolkit.utils.date_time import get_current_date_time_str
+from python_base_toolkit.utils.path_utils import get_project_path_by_file
 
 __all__ = [
     "BaseCommand",
@@ -22,7 +24,6 @@ __all__ = [
     "LabelCommand",
 ]
 
-from python_base_toolkit.utils.path_utils import get_project_path_by_file
 
 # ---------------------------------------------------------------------------
 # Exceptions
@@ -173,9 +174,12 @@ class BaseCommand:
     ) -> None:
         _ = stdout, stderr  # API compatibility with call_command(stdout=..., stderr=...)
         self.logger: CustomLoggerAdapter = get_logger(name=self.__class__.__module__.split(".", maxsplit=1)[0])
+
         build_logger(
-            project_name=self.__class__.__name__,
-            log_format="%(asctime)s | %(levelname)s | %(message)s",
+            project_name=os.getenv(
+                "PYTHON_BASE_COMMAND_PROJECT_NAME", f'{self.__class__.__name__}__{get_current_date_time_str()}'
+            ),
+            log_format=os.getenv("PYTHON_BASE_COMMAND_LOG_FORMAT", "%(asctime)s | %(levelname)s | %(message)s"),
             log_file=os.getenv("PYTHON_BASE_COMMAND_LOG_FILE", "true").lower() == "true",
         )
 
