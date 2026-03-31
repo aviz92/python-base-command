@@ -16,7 +16,7 @@ from typing import Any, TextIO
 from custom_python_logger import CustomLoggerAdapter, build_logger, get_logger
 from python_base_toolkit.utils.path_utils import get_project_path_by_file
 
-from python_base_command.const import CURRENT_DATE_TIME_STR, LOG_FILE, LOG_FORMAT
+from python_base_command.const import CURRENT_DATE_TIME_STR, LOG_FILE, LOG_FORMAT, LOG_FILE_PATH
 
 
 class CommandError(Exception):
@@ -153,6 +153,7 @@ class BaseCommand:
             ),
             log_format=LOG_FORMAT,
             log_file=LOG_FILE,
+            log_file_path=LOG_FILE_PATH,
         )
 
     def set_project_version(self, project_name: str | None = None) -> None:

@@ -40,20 +40,11 @@ Dependencies: [`custom-python-logger==2.0.13`](https://pypi.org/project/custom-p
 
 ## ⚡ Quick Start
 
-Start by creating `cli.py` — your entry point, the equivalent of Django's `manage.py`. You only need this once:
-
-```python
-# cli.py
-from python_base_command import Runner
-
-Runner(commands_dir="commands").run()
-```
-
-Then add commands to a `commands/` folder:
+Add commands to a `commands/` folder:
 
 ```
 myapp/
-├── cli.py               ← entry point (2 lines)
+├── pyproject.toml
 └── commands/
     ├── __init__.py
     └── greet.py
@@ -84,34 +75,91 @@ class Command(BaseCommand):
         self.logger.info(msg)
 ```
 
+### Packaging as a CLI tool (recommended)
+
+Register your entry point in `pyproject.toml` — this is the preferred way to expose a CLI tool when distributing your project as a package.
+
+**Option A — Single command** (one `BaseCommand` subclass, no `Runner`):
+
+```toml
+# pyproject.toml
+[project.scripts]
+myapp = "myapp.commands.greet:main"
+```
+
 ```python
-# commands/greet.py
+# myapp/commands/greet.py
+import sys
 from python_base_command import BaseCommand, CommandError
 
 
 class Command(BaseCommand):
     help = "Greet a user by name"
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.set_project_version("python-base-command")
+    version = "1.0.0"
 
     def add_arguments(self, parser):
-        pass
+        parser.add_argument("name", type=str, help="Name to greet")
+        parser.add_argument("--shout", action="store_true", help="Print in uppercase")
 
     def handle(self, **kwargs):
-        pass
+        name = kwargs["name"].strip()
+        if not name:
+            raise CommandError("Name cannot be empty.")
+        msg = f"Hello, {name}!"
+        if kwargs["shout"]:
+            msg = msg.upper()
+        self.logger.info(msg)
+
+
+def main():
+    Command().run_from_argv(sys.argv)
 ```
 
-Run from anywhere inside the project:
+**Option B — Multiple commands** (auto-discovery via `Runner`):
+
+```toml
+# pyproject.toml
+[project.scripts]
+myapp = "myapp.__main__:main"
+```
+
+```python
+# myapp/__main__.py
+import sys
+from python_base_command import Runner
+
+def main():
+    Runner(commands_dir="myapp/commands").run(sys.argv)
+```
+
+Once installed (`pip install myapp` or `uv add myapp`), the command is available globally:
 
 ```bash
-python3 cli.py --help                  # lists all available commands
-python3 cli.py greet Alice
-python3 cli.py greet Alice --shout
-python3 cli.py greet --version
-python3 cli.py greet --verbosity 2
+myapp --help
+myapp greet Alice
+myapp greet Alice --shout
+myapp greet --version
+myapp greet --verbosity 2
 ```
+
+### Local development (without installing)
+
+For local development only, you can use a `cli.py` script as a quick entry point — the equivalent of Django's `manage.py`:
+
+```python
+# cli.py  ← dev only, do not distribute
+import sys
+from python_base_command import Runner
+
+Runner(commands_dir="commands").run(sys.argv)
+```
+
+```bash
+python3 cli.py --help
+python3 cli.py greet Alice
+```
+
+> **Note:** `cli.py` is a development convenience only. For distributed packages, always use `[project.scripts]` in `pyproject.toml`.
 
 ---
 
